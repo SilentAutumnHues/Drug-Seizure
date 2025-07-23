@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>State-wise Drug Seizures Dashboard 2024</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(45deg, #764ba2, #667eea);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 15px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background-color: #f8f9ff;
+            transform: scale(1.01);
+            transition: all 0.2s ease;
+        }
+
+        .highlight {
+            background: linear-gradient(45deg, #667eea15, #764ba215);
+            border-radius: 5px;
+            padding: 4px 8px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .dashboard-container {
+                padding: 20px;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Drug Seizures Dashboard 2024</h1>
+            <p>Comprehensive analysis of major drug seizures across Indian states</p>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" onclick="showAllData()">All Drugs</button>
+            <button class="filter-btn" onclick="filterByDrug('ganja')">Ganja</button>
+            <button class="filter-btn" onclick="filterByDrug('opium')">Opium</button>
+            <button class="filter-btn" onclick="filterByDrug('poppy')">Poppy Husk</button>
+            <button class="filter-btn" onclick="filterByDrug('heroin')">Heroin</button>
+            <button class="filter-btn" onclick="filterByDrug('hashish')">Hashish</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalStates">6</div>
+                <div class="stat-label">States Covered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSeizures">---</div>
+                <div class="stat-label">Total Seizures (KG)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="topState">---</div>
+                <div class="stat-label">Top State</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="majorDrug">---</div>
+                <div class="stat-label">Major Drug Type</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">Drug Distribution by Type</div>
+                <canvas id="drugPieChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Top 5 States by Total Seizures</div>
+                <canvas id="statesBarChart"></canvas>
+            </div>
+            <div class="chart-container full-width">
+                <div class="chart-title">State-wise Drug Seizure Comparison</div>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+
+        <div class="data-table">
+            <div class="chart-title">Detailed Seizure Data</div>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>State</th>
+                        <th>Ganja (KG)</th>
+                        <th>Hashish (KG)</th>
+                        <th>Heroin (KG)</th>
+                        <th>Opium (KG)</th>
+                        <th>Poppy Husk (KG)</th>
+                        <th>Total (KG)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Data
+        const drugData = [
+            { state: 'Maharashtra', ganja: 55351, hashish: 83, heroin: 5.44, opium: 172, poppy: 157 },
+            { state: 'Madhya Pradesh', ganja: 15373, hashish: 71, heroin: 22.57, opium: 261, poppy: 129958 },
+            { state: 'Rajasthan', ganja: 15196, hashish: 6, heroin: 118.35, opium: 3401, poppy: 211636 },
+            { state: 'Gujarat', ganja: 6574, hashish: 3716, heroin: 90.14, opium: 320, poppy: 7920 },
+            { state: 'Goa', ganja: 259, hashish: 11, heroin: 0.07, opium: 0, poppy: 0 },
+            { state: 'Daman & Diu', ganja: 2, hashish: 0, heroin: 0, opium: 0, poppy: 0 }
+        ];
+
+        // Add total column
+        drugData.forEach(item => {
+            item.total = item.ganja + item.hashish + item.heroin + item.opium + item.poppy;
+        });
+
+        let currentFilter = 'all';
+        let charts = {};
+
+        // Initialize dashboard
+        function initDashboard() {
+            updateStats();
+            createCharts();
+            updateTable();
+        }
+
+        function updateStats() {
+            const totalSeizures = drugData.reduce((sum, item) => sum + item.total, 0);
+            const topState = drugData.reduce((max, item) => item.total > max.total ? item : max);
+            
+            // Calculate major drug type
+            const drugTotals = {
+                ganja: drugData.reduce((sum, item) => sum + item.ganja, 0),
+                hashish: drugData.reduce((sum, item) => sum + item.hashish, 0),
+                heroin: drugData.reduce((sum, item) => sum + item.heroin, 0),
+                opium: drugData.reduce((sum, item) => sum + item.opium, 0),
+                poppy: drugData.reduce((sum, item) => sum + item.poppy, 0)
+            };
+            
+            const majorDrug = Object.keys(drugTotals).reduce((a, b) => drugTotals[a] > drugTotals[b] ? a : b);
+
+            document.getElementById('totalSeizures').textContent = formatNumber(totalSeizures);
+            document.getElementById('topState').textContent = topState.state.split(' ')[0];
+            document.getElementById('majorDrug').textContent = majorDrug.charAt(0).toUpperCase() + majorDrug.slice(1);
+        }
+
+        function createCharts() {
+            createDrugPieChart();
+            createStatesBarChart();
+            createComparisonChart();
+        }
+
+        function createDrugPieChart() {
+            const ctx = document.getElementById('drugPieChart').getContext('2d');
+            
+            const drugTotals = {
+                'Ganja': drugData.reduce((sum, item) => sum + item.ganja, 0),
+                'Poppy Husk': drugData.reduce((sum, item) => sum + item.poppy, 0),
+                'Hashish': drugData.reduce((sum, item) => sum + item.hashish, 0),
+                'Opium': drugData.reduce((sum, item) => sum + item.opium, 0),
+                'Heroin': drugData.reduce((sum, item) => sum + item.heroin, 0)
+            };
+
+            charts.pieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(drugTotals),
+                    datasets: [{
+                        data: Object.values(drugTotals),
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#f5576c',
+                            '#4facfe'
+                        ],
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createStatesBarChart() {
+            const ctx = document.getElementById('statesBarChart').getContext('2d');
+            
+            const sortedStates = [...drugData].sort((a, b) => b.total - a.total).slice(0, 5);
+
+            charts.barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedStates.map(item => item.state),
+                    datasets: [{
+                        label: 'Total Seizures (KG)',
+                        data: sortedStates.map(item => item.total),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function createComparisonChart() {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+            charts.comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: drugData.map(item => item.state),
+                    datasets: [
+                        {
+                            label: 'Ganja',
+                            data: drugData.map(item => item.ganja),
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                        },
+                        {
+                            label: 'Poppy Husk',
+                            data: drugData.map(item => item.poppy),
+                            backgroundColor: 'rgba(118, 75, 162, 0.8)'
+                        },
+                        {
+                            label: 'Hashish',
+                            data: drugData.map(item => item.hashish),
+                            backgroundColor: 'rgba(240, 147, 251, 0.8)'
+                        },
+                        {
+                            label: 'Opium',
+                            data: drugData.map(item => item.opium),
+                            backgroundColor: 'rgba(245, 87, 108, 0.8)'
+                        },
+                        {
+                            label: 'Heroin',
+                            data: drugData.map(item => item.heroin),
+                            backgroundColor: 'rgba(79, 172, 254, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            stacked: true
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const sortedData = [...drugData].sort((a, b) => b.total - a.total);
+
+            sortedData.forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${item.state}</strong></td>
+                    <td>${formatNumber(item.ganja)}</td>
+                    <td>${formatNumber(item.hashish)}</td>
+                    <td>${formatNumber(item.heroin)}</td>
+                    <td>${formatNumber(item.opium)}</td>
+                    <td>${formatNumber(item.poppy)}</td>
+                    <td class="highlight">${formatNumber(item.total)}</td>
+                `;
+            });
+        }
+
+        function formatNumber(num) {
+            if (num === 0) return '0';
+            if (num < 1) return num.toFixed(2);
+            return num.toLocaleString();
+        }
+
+        function showAllData() {
+            currentFilter = 'all';
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            updateStats();
+            Object.values(charts).forEach(chart => chart.destroy());
+            createCharts();
+        }
+
+        function filterByDrug(drugType) {
+            currentFilter = drugType;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update stats for specific drug
+            const drugTotal = drugData.reduce((sum, item) => sum + item[drugType], 0);
+            const topStateForDrug = drugData.reduce((max, item) => item[drugType] > max[drugType] ? item : max);
+            
+            document.getElementById('totalSeizures').textContent = formatNumber(drugTotal);
+            document.getElementById('topState').textContent = topStateForDrug.state.split(' ')[0];
+            document.getElementById('majorDrug').textContent = drugType.charAt(0).toUpperCase() + drugType.slice(1);
+            
+            // Highlight specific drug column in table
+            updateTableForDrug(drugType);
+        }
+
+        function updateTableForDrug(drugType) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const sortedData = [...drugData].sort((a, b) => b[drugType] - a[drugType]);
+
+            sortedData.forEach(item => {
+                const row = tbody.insertRow();
+                const ganjaClass = drugType === 'ganja' ? 'highlight' : '';
+                const hashishClass = drugType === 'hashish' ? 'highlight' : '';
+                const heroinClass = drugType === 'heroin' ? 'highlight' : '';
+                const opiumClass = drugType === 'opium' ? 'highlight' : '';
+                const poppyClass = drugType === 'poppy' ? 'highlight' : '';
+
+                row.innerHTML = `
+                    <td><strong>${item.state}</strong></td>
+                    <td class="${ganjaClass}">${formatNumber(item.ganja)}</td>
+                    <td class="${hashishClass}">${formatNumber(item.hashish)}</td>
+                    <td class="${heroinClass}">${formatNumber(item.heroin)}</td>
+                    <td class="${opiumClass}">${formatNumber(item.opium)}</td>
+                    <td class="${poppyClass}">${formatNumber(item.poppy)}</td>
+                    <td>${formatNumber(item.total)}</td>
+                `;
+            });
+        }
+
+        // Initialize dashboard when page loads
+        window.addEventListener('load', initDashboard);
+    </script>
+</body>
+</html>
